@@ -349,3 +349,290 @@ with right_col:
 st.divider()
 
 st.caption("🤖 AgroGenAI Version 2.0 — Developed for Crop Health Intervention and Decision Support.")
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+# ==========================================
+# INTERACTIVE CROP-SPECIFIC STRESS SIMULATOR
+# ==========================================
+st.markdown("---")
+st.header("🎮 Interactive Crop-Specific Stress Simulator")
+st.caption("Simulate real-time environmental impact on specific crops grown on Bhumi.")
+
+# 1. Fetch Crop Type from main controls or provide selectbox fallback
+# (Reuses the main crop selection variable if defined earlier in your script)
+if 'crop_type' in locals():
+    selected_crop = crop_type
+elif 'crop_choice' in locals():
+    selected_crop = crop_choice
+else:
+    selected_crop = st.selectbox(
+        "Select Crop Type for Simulation", 
+        ["Cotton", "Soybean", "Sugarcane", "Tomato", "Wheat"]
+    )
+
+col1, col2 = st.columns(2)
+with col1:
+    temp_sim = st.slider("Simulated Temperature (°C)", 15, 48, 38)
+    rain_days = st.slider("Days Without Rain", 0, 30, 14)
+with col2:
+    moisture_sim = st.slider("Soil Moisture Level (%)", 5, 80, 15)
+
+# 2. Stress Index Calculation
+stress_index = max(0, min(100, int((temp_sim * 1.3) + (rain_days * 2.2) - (moisture_sim * 0.9))))
+
+st.subheader(f"Simulated Stress Index for {selected_crop}: {stress_index} / 100")
+
+# 3. Dynamic Interactive HTML5 Canvas Code
+canvas_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ margin: 0; background-color: #0e1117; display: flex; justify-content: center; align-items: center; font-family: sans-serif; }}
+        canvas {{ background: linear-gradient(to bottom, #1a1c24, #0e1117); border-radius: 12px; border: 1px solid #2d313e; }}
+    </style>
+</head>
+<body>
+    <canvas id="cropCanvas" width="600" height="300"></canvas>
+    <script>
+        const canvas = document.getElementById('cropCanvas');
+        const ctx = canvas.getContext('2d');
+        const crop = "{selected_crop}";
+        const stress = {stress_index};
+
+        // Calculate dynamic properties based on stress slider values
+        let leafColor, stemColor, plantHeight, droopAngle, statusText;
+
+        if (stress < 35) {{
+            leafColor = '#4CAF50';  // Healthy Green
+            stemColor = '#2E7D32';
+            plantHeight = 160;
+            droopAngle = 0;
+            statusText = "Lush & Healthy Growth";
+        }} else if (stress < 70) {{
+            leafColor = '#D4AC0D';  // Yellowing / Stressed
+            stemColor = '#8BC34A';
+            plantHeight = 120;
+            droopAngle = 0.5;
+            statusText = "Moderate Stress (Wilting & Growth Stunted)";
+        }} else {{
+            leafColor = '#795548';  // Dying Brown
+            stemColor = '#4E342E';
+            plantHeight = 75;       // Shrinks under severe stress
+            droopAngle = 1.2;       // Strong downward bend
+            statusText = "Critical Drought Wilting & Failure Risk";
+        }}
+
+        let wind = 0;
+
+        function drawScene() {{
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Bhumi / Soil
+            ctx.fillStyle = '#3E2723';
+            ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
+            ctx.fillStyle = '#4E342E';
+            ctx.fillRect(0, canvas.height - 30, canvas.width, 4);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height - 30;
+            const sway = stress < 70 ? Math.sin(wind) * 4 : 0;
+            wind += 0.05;
+
+            // Render specific crop visuals dynamically
+            if (crop === "Wheat") {{
+                drawWheat(cx, cy, sway);
+            }} else if (crop === "Sugarcane") {{
+                drawSugarcane(cx, cy, sway);
+            }} else if (crop === "Tomato") {{
+                drawTomato(cx, cy, sway);
+            }} else if (crop === "Cotton") {{
+                drawCotton(cx, cy, sway);
+            }} else {{
+                drawSoybean(cx, cy, sway);
+            }}
+
+            // Overlay Text
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '14px sans-serif';
+            ctx.fillText("🌾 " + crop + " Status: " + statusText, 20, 30);
+
+            requestAnimationFrame(drawScene);
+        }}
+
+        // COTTON DRAWING
+        function drawCotton(cx, cy, sway) {{
+            let topY = cy - plantHeight;
+            let bendX = cx + (droopAngle * 25) + sway;
+
+            // Main Stem
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.quadraticCurveTo(cx + sway, cy - (plantHeight * 0.5), bendX, topY);
+            ctx.strokeStyle = stemColor;
+            ctx.lineWidth = 8;
+            ctx.stroke();
+
+            // Dynamic Cotton Bolls / Leaves attached to stem
+            const nodes = [0.4, 0.7, 1.0];
+            nodes.forEach((t, i) => {{
+                let nx = cx + (bendX - cx) * t;
+                let ny = cy - (plantHeight * t);
+                let side = i % 2 === 0 ? 1 : -1;
+
+                // Leaves
+                ctx.beginPath();
+                ctx.ellipse(nx + (side * 20), ny + (droopAngle * 15), 14, 8, (side * 0.5) + droopAngle, 0, Math.PI * 2);
+                ctx.fillStyle = leafColor;
+                ctx.fill();
+
+                // Cotton Puff (shrinks & turns dark when dying)
+                ctx.beginPath();
+                let puffSize = stress > 69 ? 6 : 11;
+                ctx.arc(nx + (side * 25), ny + (droopAngle * 20), puffSize, 0, Math.PI * 2);
+                ctx.fillStyle = stress > 69 ? '#B0BEC5' : '#FFFFFF';
+                ctx.fill();
+            }});
+        }}
+
+        // SOYBEAN DRAWING
+        function drawSoybean(cx, cy, sway) {{
+            let topY = cy - plantHeight;
+            let bendX = cx + (droopAngle * 20) + sway;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.quadraticCurveTo(cx + sway, cy - (plantHeight * 0.5), bendX, topY);
+            ctx.strokeStyle = stemColor;
+            ctx.lineWidth = 7;
+            ctx.stroke();
+
+            // Trifoliate Leaf Clusters
+            [0.3, 0.6, 0.9].forEach((t) => {{
+                let nx = cx + (bendX - cx) * t;
+                let ny = cy - (plantHeight * t);
+
+                ctx.beginPath();
+                ctx.arc(nx - 20, ny + (droopAngle * 15), 10, 0, Math.PI * 2);
+                ctx.arc(nx + 20, ny + (droopAngle * 15), 10, 0, Math.PI * 2);
+                ctx.arc(nx, ny - 10 + (droopAngle * 15), 10, 0, Math.PI * 2);
+                ctx.fillStyle = leafColor;
+                ctx.fill();
+            }});
+        }}
+
+        // SUGARCANE DRAWING
+        function drawSugarcane(cx, cy, sway) {{
+            let topY = cy - (plantHeight * 1.3);
+            let bendX = cx + (droopAngle * 35) + sway;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(bendX, topY);
+            ctx.strokeStyle = stemColor;
+            ctx.lineWidth = 12;
+            ctx.stroke();
+
+            // Long Arching Leaves
+            [0.3, 0.5, 0.7, 0.9].forEach((t) => {{
+                let ly = cy - (plantHeight * 1.3 * t);
+                let lx = cx + (bendX - cx) * t;
+
+                ctx.beginPath();
+                ctx.moveTo(lx, ly);
+                ctx.quadraticCurveTo(lx + 50, ly + (droopAngle * 40), lx + 70, ly + 20 + (droopAngle * 50));
+                ctx.moveTo(lx, ly);
+                ctx.quadraticCurveTo(lx - 50, ly + (droopAngle * 40), lx - 70, ly + 20 + (droopAngle * 50));
+                ctx.strokeStyle = leafColor;
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }});
+        }}
+
+        // TOMATO DRAWING
+        function drawTomato(cx, cy, sway) {{
+            let topY = cy - plantHeight;
+            let bendX = cx + (droopAngle * 20) + sway;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.quadraticCurveTo(cx + sway, cy - (plantHeight * 0.5), bendX, topY);
+            ctx.strokeStyle = stemColor;
+            ctx.lineWidth = 8;
+            ctx.stroke();
+
+            // Branches and Tomato Fruit
+            [0.4, 0.7, 0.95].forEach((t, i) => {{
+                let nx = cx + (bendX - cx) * t;
+                let ny = cy - (plantHeight * t);
+                let side = i % 2 === 0 ? 1 : -1;
+
+                // Leaves
+                ctx.beginPath();
+                ctx.arc(nx + (side * 22), ny + (droopAngle * 12), 12, 0, Math.PI * 2);
+                ctx.fillStyle = leafColor;
+                ctx.fill();
+
+                // Tomatoes (Wrinkle/Shrivel if high stress)
+                ctx.beginPath();
+                let r = stress > 69 ? 6 : 10;
+                ctx.arc(nx + (side * 15), ny + 15 + (droopAngle * 20), r, 0, Math.PI * 2);
+                ctx.fillStyle = stress > 69 ? '#5D4037' : '#E53935';
+                ctx.fill();
+            }});
+        }}
+
+        // WHEAT DRAWING
+        function drawWheat(cx, cy, sway) {{
+            for (let i = -2; i <= 2; i++) {{
+                let x = cx + (i * 15);
+                let topY = cy - plantHeight + (Math.abs(i) * 10);
+                let bendX = x + (i * 8) + (droopAngle * 20) + sway;
+
+                ctx.beginPath();
+                ctx.moveTo(x, cy);
+                ctx.quadraticCurveTo(x + sway, cy - (plantHeight * 0.5), bendX, topY);
+                ctx.strokeStyle = stemColor;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Grain Head Spike
+                ctx.beginPath();
+                ctx.ellipse(bendX, topY, 6, 14, (i * 0.2) + droopAngle, 0, Math.PI * 2);
+                ctx.fillStyle = stress > 69 ? '#5D4037' : (stress > 34 ? '#D4AC0D' : '#F4D03F');
+                ctx.fill();
+            }}
+        }}
+
+        drawScene();
+    </script>
+</body>
+</html>
+"""
+
+components.html(canvas_html, height=320)
+
+# 4. Status Description
+if stress_index < 35:
+    st.success(f"🟢 **Status: Optimal Growth for {selected_crop}**")
+    st.markdown(f"""
+    * **Plant State:** Stomata open, active photosynthesis.
+    * **Visual Impact:** Deep green canopy, healthy root uptake on Bhumi.
+    * **Action Needed:** None. Normal irrigation schedule.
+    """)
+elif stress_index < 70:
+    st.warning(f"🟡 **Status: Moderate Drought Stress for {selected_crop}**")
+    st.markdown(f"""
+    * **Plant State:** Stomata closing to conserve moisture.
+    * **Visual Impact:** Growth stunted, yellowing leaves (NDVI drop).
+    * **Action Needed:** Initiate micro-irrigation within 48 hours.
+    """)
+else:
+    st.error(f"🔴 **Status: Critical Wilting Risk for {selected_crop}**")
+    st.markdown(f"""
+    * **Plant State:** Loss of turgor pressure, high yield damage.
+    * **Visual Impact:** Severe plant shrinkage, browning, and drooping on Bhumi.
+    * **Action Needed:** Immediate emergency watering and soil protection.
+    """)
